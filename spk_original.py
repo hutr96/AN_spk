@@ -1,3 +1,5 @@
+# -*-coding:utf-8-*-
+
 from __future__ import print_function
 import tensorflow as tf
 
@@ -19,10 +21,18 @@ import logging
 # a linear layer
 
 def linear(input, output_dim, scope=None, stddev=1.0):
+    """
+    :called by: GAN.generate, GAN.discriminator_spk, GAN.discriminator_noise
+    :param input: tensor
+    :param output_dim: output dimension
+    :param scope:
+    :param stddev: generate param for standard deviation
+    :return: output tensor
+    """
     norm = tf.random_normal_initializer(stddev=stddev)
-
+    # stddev: 一个python标量或一个标量tensor,标准偏差的随机值生成
     const = tf.constant_initializer(0.0)
-
+    # 初始化w和b
     with tf.variable_scope(scope):
         w = tf.get_variable("w", [input.get_shape()[1], output_dim], initializer=norm)
 
@@ -32,12 +42,21 @@ def linear(input, output_dim, scope=None, stddev=1.0):
 
 
 def batch_norm_wrapper(inputs, is_training, scope=None, decay=0.999):
+    """
+    :called by: GAN.generate, GAN.discriminator_spk, GAN.discriminator_noise
+    :param inputs: tensor
+    :param is_training: training start signal
+    :param scope:
+    :param decay: decay rate
+    :return: tensor after batch_normalization
+    """
     epsilon = 0.0001
-
+    # epsilon = e 防止方差为0
+    # decay 衰减率用于控制模型更新的速度
     with tf.variable_scope(scope):
-
+        # gamma
         scale = tf.Variable(tf.ones([inputs.get_shape()[-1]]))
-
+        # shift
         beta = tf.Variable(tf.zeros([inputs.get_shape()[-1]]))
 
         pop_mean = tf.Variable(tf.zeros([inputs.get_shape()[-1]]), trainable=False)
@@ -48,6 +67,7 @@ def batch_norm_wrapper(inputs, is_training, scope=None, decay=0.999):
 
             batch_mean, batch_var = tf.nn.moments(inputs, [0])
 
+            # shadow variable what for???
             train_mean = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
 
             train_var = tf.assign(pop_var, pop_var * decay + batch_var * (1 - decay))
@@ -65,19 +85,19 @@ class GAN(object):
     def __init__(self, model_path, logname):
 
         # Generate Layer
+        self.g_h0_dim = 1024
         self.g_h1_dim = 1024
-        self.g_h2_dim = 1024
-        self.g_h3_dim = 128
+        self.g_h2_dim = 128
 
         # Discriminate speaker layer
+        self.d_spk_h0 = 1024
         self.d_spk_h1 = 1024
-        self.d_spk_h2 = 1024
         self.spk_lab_dim = 50
 
         # Discriminate noise layer
 
+        self.d_noise_h0 = 1024
         self.d_noise_h1 = 1024
-        self.d_noise_h2 = 1024
         self.noise_lab_dim = 7
 
         #
@@ -90,6 +110,7 @@ class GAN(object):
         if not os.path.exists(self.model_path):
             os.makedirs(self.model_path)
 
+        # set logging module
         self.logger = logging.getLogger('GAN-' + logname)
         self.logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -100,21 +121,21 @@ class GAN(object):
 
     def generator(self, input):
 
-        # batch normallized input
+        # batch normalized input
 
         input_BN = batch_norm_wrapper(input, self.is_training, scope='in_G_BN')
 
         # hidden layer 0 on G
 
-        h0 = linear(input_BN, self.g_h1_dim, 'g0')
+        h0 = linear(input_BN, self.g_h0_dim, 'g0')
 
         h0_BN = batch_norm_wrapper(h0, self.is_training, scope='g0_BN')
 
         h0_out = tf.nn.softplus(h0_BN, name='g0_out')
 
-        # hiddenlayer 1 on G
+        # hidden layer 1 on G
 
-        h1 = linear(h0_out, self.g_h2_dim, 'g1')
+        h1 = linear(h0_out, self.g_h1_dim, 'g1')
 
         h1_BN = batch_norm_wrapper(h1, self.is_training, scope='g1_BN')
 
@@ -122,7 +143,7 @@ class GAN(object):
 
         # hidden layer 2
 
-        h2 = linear(h1_out, self.g_h3_dim, 'g2')
+        h2 = linear(h1_out, self.g_h2_dim, 'g2')
 
         h2_BN = batch_norm_wrapper(h2, self.is_training, scope='g2_BN')
 
@@ -136,7 +157,7 @@ class GAN(object):
 
         # hidden layer 0
 
-        h0 = linear(input_BN, self.d_spk_h1, 'd0_spk')
+        h0 = linear(input_BN, self.d_spk_h0, 'd0_spk')
 
         h0_BN = batch_norm_wrapper(h0, self.is_training, scope='d0_BN_spk')
 
@@ -144,7 +165,7 @@ class GAN(object):
 
         # hiddenlayer 1
 
-        h1 = linear(h0_out, self.d_spk_h2, 'd1_spk')
+        h1 = linear(h0_out, self.d_spk_h1, 'd1_spk')
 
         h1_BN = batch_norm_wrapper(h1, self.is_training, scope='d1_BN_spk')
 
@@ -164,7 +185,7 @@ class GAN(object):
 
         # hidden layer 0
 
-        h0 = linear(input_BN, self.d_noise_h1, 'd0_noise')
+        h0 = linear(input_BN, self.d_noise_h0, 'd0_noise')
 
         h0_BN = batch_norm_wrapper(h0, self.is_training, scope='d0_BN_noise')
 
@@ -172,7 +193,7 @@ class GAN(object):
 
         # hiddenlayer 1
 
-        h1 = linear(h0_out, self.d_noise_h2, 'd1_noise')
+        h1 = linear(h0_out, self.d_noise_h1, 'd1_noise')
 
         h1_BN = batch_norm_wrapper(h1, self.is_training, scope='d1_BN_noise')
 
@@ -187,15 +208,22 @@ class GAN(object):
         return h2_out
 
     def optimizer(self, loss, var_list, lab):
-
+        """
+         GradientDescentOptimizer
+        :called by: create_model
+        :param loss: loss
+        :param var_list: variable list(W and b)
+        :param lab:
+        :return: optimizer object
+        """
         initial_learning_rate = 0.005
 
         decay = 0.9
 
         num_decay_step = 150
-
+        # batch = global_steps: Optional Variable to increment by one after the variables have been updated
         batch = tf.Variable(0)
-
+        # every 150 training steps, learning_rate mul decay
         learning_rate = tf.train.exponential_decay(
 
             initial_learning_rate,
@@ -214,6 +242,7 @@ class GAN(object):
         else:
             learning_rate = learning_rate
 
+        # 梯度下降，更新var_list减小loss
         m_optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(
 
             loss,
@@ -226,9 +255,14 @@ class GAN(object):
 
         return m_optimizer
 
-    def creat_model(self):
+    def create_model(self):
+        """
 
+        :return:
+        """
+        # Discriminator pre-process
         with tf.variable_scope('D_pre'):
+            # create the whole model g+d_spk+d_noise
             self.pre_input = tf.placeholder(tf.float32, shape=(None, self.input_dim))
 
             self.pre_labs_spk = tf.placeholder(tf.float32, shape=(None, self.spk_lab_dim))
@@ -250,11 +284,13 @@ class GAN(object):
             self.pre_opt = self.optimizer(self.pre_loss, None, 'd')
 
         with tf.variable_scope('G'):
+            # create only generator
             self.G_input = tf.placeholder(tf.float32, shape=(None, self.input_dim))
 
             self.G = self.generator(self.G_input)
 
         with tf.variable_scope('D') as scope:
+            # create discriminator
             self.labs_spk = tf.placeholder(tf.float32, shape=(None, self.spk_lab_dim))
 
             self.D1_spk = self.discriminator_spk(self.G)
@@ -263,9 +299,9 @@ class GAN(object):
 
             self.D1_noise = self.discriminator_noise(self.G)
 
-        loss_d_noise = tf.reduce_mean(-tf.reduce_sum(self.labs_noise * tf.log(self.D1_noise + 1e-10), 1), 0)
-
         loss_d_spk = tf.reduce_mean(-tf.reduce_sum(self.labs_spk * tf.log(self.D1_spk + 1e-10), 1), 0)
+
+        loss_d_noise = tf.reduce_mean(-tf.reduce_sum(self.labs_noise * tf.log(self.D1_noise + 1e-10), 1), 0)
 
         loss_d_noise_ng = tf.reduce_mean(-tf.reduce_sum((1 - self.labs_noise) * tf.log((self.D1_noise) + 1e-10), 1), 0)
 
@@ -273,10 +309,12 @@ class GAN(object):
 
         self.loss_g = loss_d_noise
         # self.loss_g=loss_d_noise_ng
+        """
+        CHANGE
+        HERE
+        ATTENTION
+        """
 
-        # CHANGE
-        # HERE
-        # ATTENTION
 
         vars = tf.trainable_variables()
 
@@ -348,10 +386,12 @@ class GAN(object):
             labs_noise = d[:, 2]
             labs_spk = d[:, 0]
             self.batch_size = 64
+            """
+            CHANGE
+            HERE (batch_size)
+            ATTENTION
+            """
 
-            # CHANGE
-            # HERE (batch_size)
-            # ATTENTION
 
             for epoch in range(num_GAN):
                 perm = np.arange(N)
@@ -360,7 +400,7 @@ class GAN(object):
                 rand_train_files = [files_all[i] for i in perm]
                 rand_train_labs_noise = [labs_noise[i] for i in perm]
                 rand_train_labs_spk = [labs_spk[i] for i in perm]
-                loss_g1 = 0;
+                loss_g1 = 0
                 batch_idxs = N // self.batch_size
                 for idx in range(0, batch_idxs):
 
@@ -381,13 +421,14 @@ class GAN(object):
                     lab_spk = np.concatenate(lab_spk)
                     lab_noise = np.concatenate(lab_noise)
 
+                    """
+                    CHANGE
+                    HERE
+                    ATTENTION
+                    """
 
-                    # CHANGE
-                    # HERE
-                    # ATTENTION
 
-
-                    N = np.shape(lab_noise)[0];
+                    N = np.shape(lab_noise)[0]
                     lab_G_noise = repmat([1, 0, 0, 0, 0, 0, 0], N, 1)
                     # lab_G_noise = lab_noise;
                     tt = np.random.rand()
@@ -421,23 +462,24 @@ my_modelpath = result_path + '/' + extname + '/model_temp'
 my_logname = result_path + '/' + extname + '/log_temp'
 print(my_modelpath)
 print(my_logname)
-print('creat1')
+print('create instance')
 mymodel = GAN(my_modelpath, my_logname)
-print('creat 2')
-mymodel.creat_model()
+print('create model')
+mymodel.create_model()
 print('train 3')
 mymodel.train_model('scp/rand_all.scp', 0, 60)
 print('end')
 
 database_path = '/gpfs/gss1/work/aaudeeplearning/hongyu/GAN_DATA'
-
+# test
+print('test model')
 inpath = database_path + '/UBM/mfcc'
 outpath = database_path + '/UBM/GAN_' + extname
 scp_UBM = 'scp/UBM.scp'
 my_model_name = my_modelpath + '/yu_GAN.ckpt'
 mymodel.test_model(scp_file=scp_UBM, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
 
-# train clean
+# train clean  ??? or test
 
 inpath = database_path + '/train_spk/mfcc/train_spk_clean'
 outpath = database_path + '/train_spk/GAN_' + extname + '/train_spk_clean'
@@ -445,7 +487,7 @@ scp_train_spk = 'scp/train_spk.scp'
 mymodel.test_model(scp_file=scp_train_spk, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
 
 # train noise
-noises = ['mok_ssn', 'mok_ped', 'mok_str', 'mok_caf', 'mok_bus', 'mok_bbl'];
+noises = ['mok_ssn', 'mok_ped', 'mok_str', 'mok_caf', 'mok_bus', 'mok_bbl']
 snrs = ['10', '20']
 
 for noise in noises:
