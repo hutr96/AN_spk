@@ -38,6 +38,13 @@ def getlab_spk(str_lab,N):
 
 
 def enframe(x,inc,w_len, isframe=1):
+    """
+    :param x:
+    :param inc:
+    :param w_len:
+    :param isframe:
+    :return:
+    """
 
     nx, dx = x.shape
     if nx<5:
@@ -87,6 +94,13 @@ def enframe(x,inc,w_len, isframe=1):
 
     
 def readmat_lab(filename,str_lab_noise, str_lab_spk):
+    """
+    :param filename: mat file
+    :param str_lab_noise: noise type
+    :param str_lab_spk: spk label
+    :return:
+    """
+
     try:
         outdata = sio.loadmat(filename)[sio.whosmat(filename)[0][0]]
            

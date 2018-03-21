@@ -306,7 +306,7 @@ class GAN(object):
 		self.loss_d=0.7*loss_d_spk+ 0.3*loss_d_noise
 			
 		self.loss_g=0.7*loss_d_spk+ 0.3*loss_d_noise_ng
-		#self.loss_g=loss_d_noise_ng
+		#self.loss_g=loss_d_noise_ngl
 
 
 		vars = tf.trainable_variables()

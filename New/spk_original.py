@@ -299,6 +299,7 @@ class GAN(object):
 
             self.D1_noise = self.discriminator_noise(self.G)
 
+        # 信息论推导？
         loss_d_spk = tf.reduce_mean(-tf.reduce_sum(self.labs_spk * tf.log(self.D1_spk + 1e-10), 1), 0)
 
         loss_d_noise = tf.reduce_mean(-tf.reduce_sum(self.labs_noise * tf.log(self.D1_noise + 1e-10), 1), 0)
@@ -377,13 +378,16 @@ class GAN(object):
             # tf.global_variables_initializer().run()
             tf.initialize_all_variables().run()
 
-            # pre train discriminator
+            # pre train discriminator   train_scp:rand_all.scp
             d = np.genfromtxt(train_scp, dtype=str)
-
+            # number of data
             N = np.shape(d)[0]
 
+            # mat file
             files_all = d[:, 1]
+            # noise type
             labs_noise = d[:, 2]
+            # spk label
             labs_spk = d[:, 0]
             self.batch_size = 64
             """
@@ -394,29 +398,31 @@ class GAN(object):
 
 
             for epoch in range(num_GAN):
+                # random sorting
                 perm = np.arange(N)
                 shuffle(perm)
-
                 rand_train_files = [files_all[i] for i in perm]
                 rand_train_labs_noise = [labs_noise[i] for i in perm]
                 rand_train_labs_spk = [labs_spk[i] for i in perm]
                 loss_g1 = 0
+                # number of batch
                 batch_idxs = N // self.batch_size
                 for idx in range(0, batch_idxs):
 
                     zz = 'Epoch: ' + str(epoch) + ' ' + str(idx) + '---' + str(batch_idxs)
                     print(zz)
+                    # select batch files
                     batch_train_files = rand_train_files[idx * self.batch_size:(idx + 1) * self.batch_size]
                     batch_train_labs_noise = rand_train_labs_noise[idx * self.batch_size:(idx + 1) * self.batch_size]
                     batch_train_labs_spk = rand_train_labs_spk[idx * self.batch_size:(idx + 1) * self.batch_size]
-
+                    # function from datagenerater_new.py
                     batch_train = [readmat_lab(x, y, z) for (x, y, z) in
                                    zip(batch_train_files, batch_train_labs_noise, batch_train_labs_spk)]
 
                     data = [x[0] for x in batch_train]
                     lab_spk = [x[2] for x in batch_train]
                     lab_noise = [x[1] for x in batch_train]
-
+                    # concatenate all data and labels
                     data = np.concatenate(data)
                     lab_spk = np.concatenate(lab_spk)
                     lab_noise = np.concatenate(lab_noise)
@@ -429,6 +435,7 @@ class GAN(object):
 
 
                     N = np.shape(lab_noise)[0]
+                    # N x 7 matrix
                     lab_G_noise = repmat([1, 0, 0, 0, 0, 0, 0], N, 1)
                     # lab_G_noise = lab_noise;
                     tt = np.random.rand()
