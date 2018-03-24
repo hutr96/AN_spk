@@ -107,17 +107,17 @@ class GAN(object):
 
         self.model_path = model_path
 
-        # if not os.path.exists(self.model_path):
-        #     os.makedirs(self.model_path)
-        #
-        # # set logging module
-        # self.logger = logging.getLogger('GAN-' + logname)
-        # self.logger.setLevel(logging.DEBUG)
-        # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        # fh = logging.FileHandler(logname + '.log')
-        # fh.setFormatter(formatter)
+        if not os.path.exists(self.model_path):
+            os.makedirs(self.model_path)
 
-        # self.logger.addHandler(fh)
+        # set logging module
+        self.logger = logging.getLogger('GAN-' + logname)
+        self.logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        fh = logging.FileHandler(logname + '.log')
+        fh.setFormatter(formatter)
+
+        self.logger.addHandler(fh)
 
     def generator(self, input):
 
@@ -268,72 +268,28 @@ class GAN(object):
 
             self.pre_labs_spk = tf.placeholder(tf.float32, shape=(None, self.spk_lab_dim))
 
-            self.pre_labs_noise = tf.placeholder(tf.float32, shape=(None, self.noise_lab_dim))
+            # self.pre_labs_noise = tf.placeholder(tf.float32, shape=(None, self.noise_lab_dim))
 
             g_out = self.generator(self.pre_input)
 
             d_spk_out = self.discriminator_spk(g_out)
 
-            d_noise_out = self.discriminator_noise(g_out)
+            # d_noise_out = self.discriminator_noise(g_out)
 
-            loss_spk = tf.reduce_mean(-tf.reduce_sum(self.pre_labs_spk * tf.log(d_spk_out + 1e-10), 1), 0)
 
-            loss_noise = tf.reduce_mean(-tf.reduce_sum(self.pre_labs_noise * tf.log(d_noise_out + 1e-10), 1), 0)
+        loss_spk = tf.reduce_mean(-tf.reduce_sum(self.pre_labs_spk * tf.log(d_spk_out + 1e-10), 1), 0)
 
-            self.pre_loss = 0.7 * loss_spk + 0.3 * loss_noise
-            # self.pre_loss = loss_noise
-            self.pre_opt = self.optimizer(self.pre_loss, None, 'd')
+        # loss_noise = tf.reduce_mean(-tf.reduce_sum(self.pre_labs_noise * tf.log(d_noise_out + 1e-10), 1), 0)
 
-        with tf.variable_scope('G'):
-            # create only generator
-            self.G_input = tf.placeholder(tf.float32, shape=(None, self.input_dim))
-
-            self.G = self.generator(self.G_input)
-
-        with tf.variable_scope('D') as scope:
-            # create discriminator
-            self.labs_spk = tf.placeholder(tf.float32, shape=(None, self.spk_lab_dim))
-
-            self.D1_spk = self.discriminator_spk(self.G)
-
-            self.labs_noise = tf.placeholder(tf.float32, shape=(None, self.noise_lab_dim))
-
-            self.D1_noise = self.discriminator_noise(self.G)
-
-        # 信息论推导？
-        loss_d_spk = tf.reduce_mean(-tf.reduce_sum(self.labs_spk * tf.log(self.D1_spk + 1e-10), 1), 0)
-
-        loss_d_noise = tf.reduce_mean(-tf.reduce_sum(self.labs_noise * tf.log(self.D1_noise + 1e-10), 1), 0)
-
-        # noise general, 1 - labs_noise(clean) = [0,1,1,1,1,1,1]
-        loss_d_noise_ng = tf.reduce_mean(-tf.reduce_sum((1 - self.labs_noise) * tf.log(self.D1_noise + 1e-10), 1), 0)
-
-        # when training D, noise type is used as labs_noise
-        self.loss_d = 0.7 * loss_d_spk + 0.3 * loss_d_noise
-
-        # when training G, clean speech:lab_G_noise(in function train_model) is used as labs_noise
-        # only noise label are used for training G here, spk+noise labels: loss_g = loss_d
-        self.loss_g = loss_d_noise
-        # self.loss_g=loss_d_noise_ng
-        """
-        HERE
-        ATTENTION
-        """
-
+        # self.pre_loss = 0.7 * loss_spk + 0.3 * loss_noise
+        self.pre_loss = loss_spk
 
         vars = tf.trainable_variables()
 
-        # self.d_pre_params_g = [v for v in vars if v.name.startswith('D_pre/g')]
+        self.d_pre_params = [v for v in vars if v.name.startswith('D_pre/')]
 
-        # self.d_pre_params_d = [v for v in vars if v.name.startswith('D_pre/d')]
+        self.pre_opt = self.optimizer(self.pre_loss, self.d_pre_params, 'd')
 
-        self.d_params = [v for v in vars if v.name.startswith('D/')]
-
-        self.g_params = [v for v in vars if v.name.startswith('G/')]
-
-        self.opt_d = self.optimizer(self.loss_d, self.d_params, 'D')
-
-        self.opt_g = self.optimizer(self.loss_g, self.g_params, 'G')
 
     def test_model(self, scp_file, model_name, savepath_in, savepath_out):
 
@@ -382,9 +338,6 @@ class GAN(object):
             # tf.global_variables_initializer().run()
             tf.initialize_all_variables().run()
 
-            variable_name = [v.name for v in tf.trainable_variables()]
-            print(variable_name)
-
             # pre train discriminator   train_scp:rand_all.scp
             d = np.genfromtxt(train_scp, dtype=str)
             # number of data
@@ -428,62 +381,40 @@ class GAN(object):
 
                     data = [x[0] for x in batch_train]
                     lab_spk = [x[2] for x in batch_train]
-                    lab_noise = [x[1] for x in batch_train]
+                    # lab_noise = [x[1] for x in batch_train]
                     # concatenate all data and labels
                     data = np.concatenate(data)
                     lab_spk = np.concatenate(lab_spk)
-                    lab_noise = np.concatenate(lab_noise)
+                    # lab_noise = np.concatenate(lab_noise)
 
-                    
-                    
-                    
+                    """
+                    CHANGE
+                    HERE
+                    ATTENTION
+                    """
 
 
-                    N = np.shape(lab_noise)[0]
+                    # N = np.shape(lab_noise)[0]
                     # N x 7 matrix  type: clean
-                    lab_G_noise = repmat([1, 0, 0, 0, 0, 0, 0], N, 1)
+                    # lab_G_noise = repmat([1, 0, 0, 0, 0, 0, 0], N, 1)
                     # lab_G_noise = lab_noise;
-                    tt = np.random.rand()
-                    loss_d = 0.0
+                    # tt = np.random.rand()
+                    # loss_d = 0.0
 
-
-                    # G update three times and update D 50% probability
-                    if tt < 0.5:
-                        loss_d1, _ = session.run([self.loss_d, self.opt_d],
-                                             {self.G_input: data, self.labs_spk: lab_spk, self.labs_noise: lab_noise})
-                    # loss_d2, _ = session.run([self.loss_d, self.opt_d],
-                    #                          {self.G_input: data, self.labs_spk: lab_spk, self.labs_noise: lab_noise})
-                    # if tt < 0.5:
-                    loss_g1, _ = session.run([self.loss_g, self.opt_g], {self.G_input: data, self.labs_spk: lab_spk,
-                                                                             self.labs_noise: lab_G_noise})
-
-                    loss_g2, _ = session.run([self.loss_g, self.opt_g], {self.G_input: data, self.labs_spk: lab_spk,
-                                                                             self.labs_noise: lab_G_noise})
-
-                    loss_g3, _ = session.run([self.loss_g, self.opt_g], {self.G_input: data, self.labs_spk: lab_spk,
-                                                                             self.labs_noise: lab_G_noise})
+                    DNNtrain_loss, _ = session.run([self.pre_loss, self.pre_opt],
+                                                   {self.pre_input: data, self.pre_labs_spk: lab_spk})
 
                     self.logger.info(
-                        'step ' + str(epoch) + ' Batch ' + str(idx) + 'loss_d1 ' + str(loss_d1) + ' loss_g1 ' + str(
-                            loss_g1) + ' loss_g2 ' + str(loss_g2) + ' loss_g3 ' + str(loss_g3))
+                        'step ' + str(epoch) + ' Batch ' + str(idx) + 'DNNtrain_loss ' + str(DNNtrain_loss))
 
                 temp_savename = self.model_path + '/yu_GAN' + str(epoch) + '.ckpt'
                 saver.save(session, save_path=temp_savename)
             saver.save(session, save_path=self.model_path + '/yu_GAN.ckpt')
 
-    def show_variable(self):
-        variable_name = [v.name for v in tf.trainable_variables()]
-        print(variable_name)
 
+result_path = '/mnt/'
 
-testmodel = GAN('1', '1')
-testmodel.create_model()
-print('create model')
-testmodel.show_variable()
-'''
-result_path = '/gpfs/gss1/work/aaudeeplearning/hongyu/GAN_DATA/result'
-
-extname = 'spk_noise_lab_one3'
+extname = 'DNN_spk'
 my_modelpath = result_path + '/' + extname + '/model_temp'
 my_logname = result_path + '/' + extname + '/log_temp'
 print(my_modelpath)
@@ -492,7 +423,7 @@ print('create instance')
 mymodel = GAN(my_modelpath, my_logname)
 print('create model')
 mymodel.create_model()
-print('train 3')
+print('training')
 mymodel.train_model('scp/rand_all.scp', 0, 60)
 print('end')
 
@@ -505,14 +436,14 @@ scp_UBM = 'scp/UBM.scp'
 my_model_name = my_modelpath + '/yu_GAN.ckpt'
 mymodel.test_model(scp_file=scp_UBM, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
 
-# train clean  ??? or test
+# test training - clean
 
 inpath = database_path + '/train_spk/mfcc/train_spk_clean'
 outpath = database_path + '/train_spk/GAN_' + extname + '/train_spk_clean'
 scp_train_spk = 'scp/train_spk.scp'
 mymodel.test_model(scp_file=scp_train_spk, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
 
-# train noise
+# train training - noise
 noises = ['mok_ssn', 'mok_ped', 'mok_str', 'mok_caf', 'mok_bus', 'mok_bbl']
 snrs = ['10', '20']
 
@@ -542,7 +473,7 @@ for noise in noises:
 
 # os.system(cmd)
 
-'''
+
 
 
 
