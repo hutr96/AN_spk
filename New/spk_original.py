@@ -359,7 +359,7 @@ class GAN(object):
                     print(filename + 'ERRO\n')
                     self.logger.info(filename + 'ERRO')
                     continue
-
+                # change here when training  D_pre: G = g_out
                 m_G = session.run([self.G], {self.G_input: data})
                 savename = savepath_out + '/' + filename
 
@@ -441,7 +441,7 @@ class GAN(object):
 
                     N = np.shape(lab_noise)[0]
                     # N x 7 matrix  type: clean
-                    lab_G_noise = repmat([1, 0, 0, 0, 0, 0, 0], N, 1)
+                    lab_G_noise = repmat([1, 0, 0, 0, 0, 0], N, 1)
                     # lab_G_noise = lab_noise;
                     tt = np.random.rand()
                     loss_d = 0.0
@@ -475,11 +475,68 @@ class GAN(object):
         variable_name = [v.name for v in tf.trainable_variables()]
         print(variable_name)
 
-
+"""
 testmodel = GAN('1', '1')
 testmodel.create_model()
 print('create model')
 testmodel.show_variable()
+"""
+
+result_path = '/mnt/hd5/hutr/GAN_DATA/result'
+
+extname = 'DNN_noise'
+my_modelpath = result_path + '/' + extname + '/model_temp'
+my_logname = result_path + '/' + extname + '/log_temp'
+print(my_modelpath)
+print(my_logname)
+print('create instance')
+mymodel = GAN(my_modelpath, my_logname)
+print('create model')
+mymodel.create_model()
+# print('train DNN_noise')
+# mymodel.train_model('scp/train_GAN_mat.scp', 0, 60)
+print('end')
+
+database_path = '/mnt/hd5/hutr/GAN_DATA'
+# set training for UBM
+
+print('test model')
+inpath = database_path + '/UBM/mfcc'
+outpath = database_path + '/UBM/GAN_' + extname
+scp_UBM = 'scp/UBM.scp'
+my_model_name = my_modelpath + '/DNN_noise.ckpt'
+mymodel.test_model(scp_file=scp_UBM, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
+
+# set training for spk, train_spk_clean
+
+inpath = database_path + '/train_spk/mfcc/train_spk_clean'
+outpath = database_path + '/train_spk/GAN_' + extname + '/train_spk_clean'
+scp_train_spk = 'scp/train_spk.scp'
+mymodel.test_model(scp_file=scp_train_spk, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
+
+# set training for spk, specific noise train_spk
+noises = ['white', 'babble', 'airplane', 'cantine', 'market']
+snrs = ['10', '20']
+
+for noise in noises:
+    for snr in snrs:
+        inpath = database_path + '/train_spk/mfcc/train_spk_' + noise + '/SNR_' + snr
+        outpath = database_path + '/train_spk/GAN_' + extname + '/train_spk_' + noise + '/SNR_' + snr
+        mymodel.test_model(scp_file=scp_train_spk, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
+
+# set testing for spk, clean
+inpath = database_path + '/test_spk/mfcc/test_spk_clean'
+outpath = database_path + '/test_spk/GAN_' + extname + '/test_spk_clean'
+scp_test_spk = 'scp/test_spk.scp'
+mymodel.test_model(scp_file=scp_test_spk, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
+
+# set testing for spk, noise
+snrs = ['-5', '00', '05', '10', '15', '20']
+for noise in noises:
+    for snr in snrs:
+        inpath = database_path + '/test_spk/mfcc/test_spk_' + noise + '/SNR_' + snr
+        outpath = database_path + '/test_spk/GAN_' + extname + '/test_spk_' + noise + '/SNR_' + snr
+        mymodel.test_model(scp_file=scp_test_spk, model_name=my_model_name, savepath_in=inpath, savepath_out=outpath)
 '''
 result_path = '/gpfs/gss1/work/aaudeeplearning/hongyu/GAN_DATA/result'
 

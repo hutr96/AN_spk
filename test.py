@@ -1,7 +1,13 @@
-d = np.genfromtxt(train_scp, dtype=str)
+# -*- coding: utf-8 -*-
+import scipy.io
 
-N = np.shape(d)[0]
+filename = "/Users/hutr/Documents/Study/毕设/文件/MFCCs/m059_07_004.mat"
 
-files_all = d[:, 1]
-labs_noise = d[:, 2]
-labs_spk = d[:, 0]
+data = scipy.io.loadmat(filename)
+print 'data:'
+print data
+print 'whosdata:'
+print scipy.io.whosmat(filename)
+out = data[scipy.io.whosmat(filename)[0][0]]
+print 'out:'
+print out

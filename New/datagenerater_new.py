@@ -17,9 +17,14 @@ def readmatfile(filename):
 
 
 def getlabdata(str_lab,N):
-    
-    dic = {'clean': [1, 0, 0, 0,0,0,0], 'mok_ssn': [0, 1, 0, 0,0,0,0], 'mok_ped': [0, 0, 1, 0,0,0,0 ], 'mok_str': [0, 0, 0, 1,0,0,0],
-           'mok_caf': [0, 0, 0, 0,1,0,0], 'mok_bus': [0, 0, 0, 0,0,1,0], 'mok_bbl':[0, 0, 0, 0,0,0,1]}
+    """
+    :param str_lab: noise label
+    :param N: shape(data_framed)
+    :return:
+    """
+    dic = {'clean': [1, 0, 0, 0, 0, 0], 'white': [0, 1, 0, 0, 0, 0], 'babble': [0, 0, 1, 0, 0, 0],
+           'airplane': [0, 0, 0, 1, 0, 0],
+           'cantine': [0, 0, 0, 0, 1, 0], 'market': [0, 0, 0, 0, 0, 1]}
     tt=repmat(dic[str_lab],N,1)
     return tt
 
@@ -290,6 +295,8 @@ class DataSet():
 
 
         data_framed = enframe(file_data, 1, 11, isframe=1)
+
+
 
 
         return data_framed, tt
